@@ -1,40 +1,233 @@
-// script.js const board = document.getElementById("game-board"); const scoreEl = document.getElementById("score"); const highScoreEl = document.getElementById("high-score"); const modeSelect = document.getElementById("modeSelect"); const speedSelect = document.getElementById("speedSelect");
+//script.js
+const board = document.getElementById("game-board");
+const scoreEl = document.getElementById("score");
+const highScoreEl = document.getElementById("high-score");
+const modeSelect = document.getElementById("modeSelect");
+const speedSelect = document.getElementById("speedSelect");
 
-const gridSize = 20; let snake = [{ x: 10, y: 10 }]; let food = null; let direction = { x: 0, y: 0 }; let walls = []; let score = 0; let highScore = localStorage.getItem("snakeHighScore") || 0; let gameLoop; let isBot = false;
+const gridSize = 20;
+let snake = [{ x: 10, y: 10 }];
+let food = null;
+let direction = { x: 0, y: 0 };
+let walls = [];
+let score = 0;
+let highScore = parseInt(localStorage.getItem("snakeHighScore")) || 0;
+let gameLoop;
+let speed = 300;
+let isBot = false;
 
 highScoreEl.textContent = highScore;
 
-function createBoard() { board.innerHTML = ""; for (let y = 0; y < gridSize; y++) { for (let x = 0; x < gridSize; x++) { const cell = document.createElement("div"); cell.classList.add("cell"); cell.dataset.x = x; cell.dataset.y = y; board.appendChild(cell); } } }
+function createBoard() {
+  board.innerHTML = "";
+  for (let y = 0; y < gridSize; y++) {
+    for (let x = 0; x < gridSize; x++) {
+      const cell = document.createElement("div");
+      cell.classList.add("cell");
+      cell.dataset.x = x;
+      cell.dataset.y = y;
+      board.appendChild(cell);
+    }
+  }
+}
 
-function getCell(x, y) { return board.querySelector(.cell[data-x='${x}'][data-y='${y}']); }
+function getCell(x, y) {
+  return board.querySelector(`.cell[data-x='${x}'][data-y='${y}']`);
+}
 
-function draw() { document.querySelectorAll(".cell").forEach(cell => { cell.classList.remove("snake", "food", "wall"); }); snake.forEach(s => getCell(s.x, s.y)?.classList.add("snake")); if (food) getCell(food.x, food.y)?.classList.add("food"); walls.forEach(w => getCell(w.x, w.y)?.classList.add("wall")); }
+function placeFood() {
+  while (true) {
+    const x = Math.floor(Math.random() * gridSize);
+    const y = Math.floor(Math.random() * gridSize);
+    if (!snake.some(s => s.x === x && s.y === y) && !walls.some(w => w.x === x && w.y === y)) {
+      food = { x, y };
+      break;
+    }
+  }
+}
 
-function moveSnake() { const head = { x: snake[0].x + direction.x, y: snake[0].y + direction.y };
+function placeWalls() {
+  walls = [];
+  // Đặt 30 chướng ngại vật ngẫu nhiên
+  for (let i = 0; i < 30; i++) {
+    while (true) {
+      const x = Math.floor(Math.random() * gridSize);
+      const y = Math.floor(Math.random() * gridSize);
+      if (!snake.some(s => s.x === x && s.y === y) && !walls.some(w => w.x === x && w.y === y) && !(food && food.x === x && food.y === y)) {
+        walls.push({ x, y });
+        break;
+      }
+    }
+  }
+}
 
-if (head.x < 0 || head.y < 0 || head.x >= gridSize || head.y >= gridSize || snake.some(p => p.x === head.x && p.y === head.y) || walls.some(w => w.x === head.x && w.y === head.y)) { clearInterval(gameLoop); alert("Game Over"); return location.reload(); }
+function draw() {
+  // Xóa toàn bộ trạng thái
+  document.querySelectorAll(".cell").forEach(cell => {
+    cell.className = "cell";
+  });
+  // Vẽ walls
+  walls.forEach(w => {
+    getCell(w.x, w.y).classList.add("wall");
+  });
+  // Vẽ food
+  if (food) {
+    getCell(food.x, food.y).classList.add("food");
+  }
+  // Vẽ snake
+  snake.forEach(s => {
+    getCell(s.x, s.y).classList.add("snake");
+  });
+}
 
-snake.unshift(head); if (food && head.x === food.x && head.y === food.y) { score++; playEatSound(); placeFood(); updateScore(); } else { snake.pop(); } draw(); }
+function playEatSound() {
+  try {
+    // Tạo âm thanh "beep" đơn giản không cần file
+    const context = new (window.AudioContext || window.webkitAudioContext)();
+    const o = context.createOscillator();
+    const g = context.createGain();
+    o.type = "square";
+    o.frequency.value = 440;
+    o.connect(g);
+    g.connect(context.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.00001, context.currentTime + 0.1);
+    o.stop(context.currentTime + 0.1);
+  } catch (e) {
+    // Nếu trình duyệt không hỗ trợ AudioContext, bỏ qua
+  }
+}
 
-function updateScore() { scoreEl.textContent = score; if (score > highScore) { highScore = score; localStorage.setItem("snakeHighScore", highScore); highScoreEl.textContent = highScore; } }
+function update() {
+  let head = { x: snake[0].x + direction.x, y: snake[0].y + direction.y };
 
-function placeFood() { let x, y; do { x = Math.floor(Math.random() * gridSize); y = Math.floor(Math.random() * gridSize); } while (snake.some(p => p.x === x && p.y === y) || walls.some(w => w.x === x && w.y === y)); food = { x, y }; }
+  // Giới hạn board (cho rắn chết nếu va chạm tường)
+  if (head.x < 0 || head.x >= gridSize || head.y < 0 || head.y >= gridSize) {
+    gameOver();
+    return;
+  }
+  // Va chạm chướng ngại vật
+  if (walls.some(w => w.x === head.x && w.y === head.y)) {
+    gameOver();
+    return;
+  }
+  // Va chạm thân rắn
+  if (snake.some(s => s.x === head.x && s.y === head.y)) {
+    gameOver();
+    return;
+  }
 
-function placeWalls() { walls = []; for (let i = 0; i < 10; i++) { let x, y; do { x = Math.floor(Math.random() * gridSize); y = Math.floor(Math.random() * gridSize); } while ((x === 10 && y === 10) || walls.some(w => w.x === x && w.y === y)); walls.push({ x, y }); } }
+  snake.unshift(head);
 
-function playEatSound() { const ctx = new AudioContext(); const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.connect(gain); gain.connect(ctx.destination); osc.type = "sine"; osc.frequency.value = 440; osc.start(); gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3); osc.stop(ctx.currentTime + 0.3); }
+  // Ăn food
+  if (food && head.x === food.x && head.y === food.y) {
+    score++;
+    scoreEl.textContent = score;
+    playEatSound();
+    placeFood();
+  } else {
+    snake.pop();
+  }
 
-function handleKey(e) { switch (e.key) { case "ArrowUp": if (direction.y === 0) direction = { x: 0, y: -1 }; break; case "ArrowDown": if (direction.y === 0) direction = { x: 0, y: 1 }; break; case "ArrowLeft": if (direction.x === 0) direction = { x: -1, y: 0 }; break; case "ArrowRight": if (direction.x === 0) direction = { x: 1, y: 0 }; break; } }
+  draw();
+}
 
-function botAI() { const head = snake[0]; if (!food) return; const dx = food.x - head.x; const dy = food.y - head.y; direction = Math.abs(dx) > Math.abs(dy) ? { x: dx > 0 ? 1 : -1, y: 0 } : { x: 0, y: dy > 0 ? 1 : -1 }; }
+function gameOver() {
+  clearInterval(gameLoop);
+  alert(`Game over! Điểm của bạn: ${score}`);
+  if (score > highScore) {
+    localStorage.setItem("snakeHighScore", score);
+    highScore = score;
+    highScoreEl.textContent = highScore;
+  }
+  resetGame();
+}
 
-function gameTick() { if (isBot) botAI(); moveSnake(); }
+function resetGame() {
+  snake = [{ x: 10, y: 10 }];
+  direction = { x: 0, y: 0 };
+  score = 0;
+  scoreEl.textContent = score;
+  placeFood();
+  placeWalls();
+  draw();
+}
 
-function init() { createBoard(); placeFood(); placeWalls(); draw(); direction = { x: 1, y: 0 }; isBot = modeSelect.value === "bot"; const interval = parseInt(speedSelect.value); clearInterval(gameLoop); gameLoop = setInterval(gameTick, interval); }
+function botChooseDirection() {
+  // Bot đơn giản: tìm hướng đến food mà không va chạm
+  const head = snake[0];
+  const dx = food.x - head.x;
+  const dy = food.y - head.y;
+  let options = [];
 
-modeSelect.addEventListener("change", init); speedSelect.addEventListener("change", init); window.addEventListener("keydown", handleKey);
+  // Tạo các hướng khả thi
+  if (dx !== 0) {
+    options.push({ x: Math.sign(dx), y: 0 });
+  }
+  if (dy !== 0) {
+    options.push({ x: 0, y: Math.sign(dy) });
+  }
+  // Thêm hướng ngẫu nhiên phòng trường hợp trên đều không đi được
+  options.push({ x: 0, y: 1 });
+  options.push({ x: 0, y: -1 });
+  options.push({ x: 1, y: 0 });
+  options.push({ x: -1, y: 0 });
 
-// Cảm ứng let startX, startY; window.addEventListener("touchstart", e => { const touch = e.touches[0]; startX = touch.clientX; startY = touch.clientY; }); window.addEventListener("touchend", e => { const touch = e.changedTouches[0]; const dx = touch.clientX - startX; const dy = touch.clientY - startY; if (Math.abs(dx) > Math.abs(dy)) { direction = dx > 0 ? { x: 1, y: 0 } : { x: -1, y: 0 }; } else { direction = dy > 0 ? { x: 0, y: 1 } : { x: 0, y: -1 }; } });
+  for (let dir of options) {
+    let nextPos = { x: head.x + dir.x, y: head.y + dir.y };
+    if (
+      nextPos.x >= 0 &&
+      nextPos.x < gridSize &&
+      nextPos.y >= 0 &&
+      nextPos.y < gridSize &&
+      !walls.some(w => w.x === nextPos.x && w.y === nextPos.y) &&
+      !snake.some(s => s.x === nextPos.x && s.y === nextPos.y)
+    ) {
+      return dir;
+    }
+  }
+  // Nếu không tìm được hướng đi an toàn, giữ nguyên hướng cũ
+  return direction;
+}
 
-init();
+function gameTick() {
+  if (isBot) {
+    direction = botChooseDirection();
+  }
+  // Nếu chưa có hướng (lúc bắt đầu) thì rắn không di chuyển
+  if (direction.x === 0 && direction.y === 0) return;
+  update();
+}
 
+function keyDownHandler(e) {
+  if (isBot) return; // Bot chơi thì không cần người điều khiển
+  switch (e.key) {
+    case "ArrowUp":
+      if (direction.y !== 1) direction = { x: 0, y: -1 };
+      break;
+    case "ArrowDown":
+      if (direction.y !== -1) direction = { x: 0, y: 1 };
+      break;
+    case "ArrowLeft":
+      if (direction.x !== 1) direction = { x: -1, y: 0 };
+      break;
+    case "ArrowRight":
+      if (direction.x !== -1) direction = { x: 1, y: 0 };
+      break;
+  }
+}
+
+function startGame() {
+  clearInterval(gameLoop);
+  speed = parseInt(speedSelect.value);
+  isBot = modeSelect.value === "bot";
+  resetGame();
+  gameLoop = setInterval(gameTick, speed);
+}
+
+modeSelect.addEventListener("change", startGame);
+speedSelect.addEventListener("change", startGame);
+window.addEventListener("keydown", keyDownHandler);
+
+createBoard();
+startGame();
