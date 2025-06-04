@@ -1,233 +1,172 @@
-//script.js
-const board = document.getElementById("game-board");
-const scoreEl = document.getElementById("score");
-const highScoreEl = document.getElementById("high-score");
-const modeSelect = document.getElementById("modeSelect");
+// script.js
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const startBtn = document.getElementById("startBtn");
+const restartBtn = document.getElementById("restartBtn");
+const modalRestartBtn = document.getElementById("modalRestartBtn");
+const scoreDisplay = document.getElementById("scoreDisplay");
 const speedSelect = document.getElementById("speedSelect");
+const modeSelect = document.getElementById("modeSelect");
+const finalScore = document.getElementById("finalScore");
+const gameOverModal = new bootstrap.Modal(document.getElementById("gameOverModal"));
+
+let snake, food, dx, dy, speed, score, gameLoop, isBot;
 
 const gridSize = 20;
-let snake = [{ x: 10, y: 10 }];
-let food = null;
-let direction = { x: 0, y: 0 };
-let walls = [];
-let score = 0;
-let highScore = parseInt(localStorage.getItem("snakeHighScore")) || 0;
-let gameLoop;
-let speed = 300;
-let isBot = false;
+const canvasSize = canvas.width;
 
-highScoreEl.textContent = highScore;
-
-function createBoard() {
-  board.innerHTML = "";
-  for (let y = 0; y < gridSize; y++) {
-    for (let x = 0; x < gridSize; x++) {
-      const cell = document.createElement("div");
-      cell.classList.add("cell");
-      cell.dataset.x = x;
-      cell.dataset.y = y;
-      board.appendChild(cell);
-    }
-  }
+function initGame() {
+  snake = [{ x: 160, y: 160 }];
+  dx = gridSize;
+  dy = 0;
+  score = 0;
+  food = getRandomPosition();
+  clearInterval(gameLoop);
+  speed = parseInt(speedSelect.value);
+  isBot = modeSelect.value === "bot";
+  gameLoop = setInterval(draw, speed);
+  scoreDisplay.textContent = "Điểm: 0";
+  canvas.classList.remove("d-none");
+  restartBtn.classList.remove("d-none");
 }
 
-function getCell(x, y) {
-  return board.querySelector(`.cell[data-x='${x}'][data-y='${y}']`);
-}
-
-function placeFood() {
-  while (true) {
-    const x = Math.floor(Math.random() * gridSize);
-    const y = Math.floor(Math.random() * gridSize);
-    if (!snake.some(s => s.x === x && s.y === y) && !walls.some(w => w.x === x && w.y === y)) {
-      food = { x, y };
-      break;
-    }
-  }
-}
-
-function placeWalls() {
-  walls = [];
-  // Đặt 30 chướng ngại vật ngẫu nhiên
-  for (let i = 0; i < 30; i++) {
-    while (true) {
-      const x = Math.floor(Math.random() * gridSize);
-      const y = Math.floor(Math.random() * gridSize);
-      if (!snake.some(s => s.x === x && s.y === y) && !walls.some(w => w.x === x && w.y === y) && !(food && food.x === x && food.y === y)) {
-        walls.push({ x, y });
-        break;
-      }
-    }
-  }
+function getRandomPosition() {
+  let pos;
+  do {
+    pos = {
+      x: Math.floor(Math.random() * (canvasSize / gridSize)) * gridSize,
+      y: Math.floor(Math.random() * (canvasSize / gridSize)) * gridSize,
+    };
+  } while (snake.some(part => part.x === pos.x && part.y === pos.y));
+  return pos;
 }
 
 function draw() {
-  // Xóa toàn bộ trạng thái
-  document.querySelectorAll(".cell").forEach(cell => {
-    cell.className = "cell";
-  });
-  // Vẽ walls
-  walls.forEach(w => {
-    getCell(w.x, w.y).classList.add("wall");
-  });
-  // Vẽ food
-  if (food) {
-    getCell(food.x, food.y).classList.add("food");
-  }
-  // Vẽ snake
-  snake.forEach(s => {
-    getCell(s.x, s.y).classList.add("snake");
-  });
-}
+  ctx.clearRect(0, 0, canvasSize, canvasSize);
 
-function playEatSound() {
-  try {
-    // Tạo âm thanh "beep" đơn giản không cần file
-    const context = new (window.AudioContext || window.webkitAudioContext)();
-    const o = context.createOscillator();
-    const g = context.createGain();
-    o.type = "square";
-    o.frequency.value = 440;
-    o.connect(g);
-    g.connect(context.destination);
-    o.start();
-    g.gain.exponentialRampToValueAtTime(0.00001, context.currentTime + 0.1);
-    o.stop(context.currentTime + 0.1);
-  } catch (e) {
-    // Nếu trình duyệt không hỗ trợ AudioContext, bỏ qua
-  }
-}
+  // Draw food
+  ctx.fillStyle = "red";
+  ctx.fillRect(food.x, food.y, gridSize, gridSize);
 
-function update() {
-  let head = { x: snake[0].x + direction.x, y: snake[0].y + direction.y };
+  // Move snake
+  const head = { x: snake[0].x + dx, y: snake[0].y + dy };
 
-  // Giới hạn board (cho rắn chết nếu va chạm tường)
-  if (head.x < 0 || head.x >= gridSize || head.y < 0 || head.y >= gridSize) {
-    gameOver();
-    return;
-  }
-  // Va chạm chướng ngại vật
-  if (walls.some(w => w.x === head.x && w.y === head.y)) {
-    gameOver();
-    return;
-  }
-  // Va chạm thân rắn
-  if (snake.some(s => s.x === head.x && s.y === head.y)) {
-    gameOver();
-    return;
-  }
+  if (isBot) autoMove(head);
 
   snake.unshift(head);
 
-  // Ăn food
-  if (food && head.x === food.x && head.y === food.y) {
+  // Check food
+  if (head.x === food.x && head.y === food.y) {
     score++;
-    scoreEl.textContent = score;
-    playEatSound();
-    placeFood();
+    scoreDisplay.textContent = `Điểm: ${score}`;
+    food = getRandomPosition();
+    new Audio("https://actions.google.com/sounds/v1/cartoon/pop.ogg").play();
   } else {
     snake.pop();
   }
 
-  draw();
+  // Draw snake
+  ctx.fillStyle = "lime";
+  snake.forEach(part => ctx.fillRect(part.x, part.y, gridSize, gridSize));
+
+  // Check collision
+  if (
+    head.x < 0 ||
+    head.x >= canvasSize ||
+    head.y < 0 ||
+    head.y >= canvasSize ||
+    snake.slice(1).some(p => p.x === head.x && p.y === head.y)
+  ) {
+    gameOver();
+  }
+}
+
+function autoMove(head) {
+  const directions = [
+    { x: gridSize, y: 0 },
+    { x: -gridSize, y: 0 },
+    { x: 0, y: gridSize },
+    { x: 0, y: -gridSize }
+  ];
+  directions.sort((a, b) => {
+    const da = Math.hypot((head.x + a.x) - food.x, (head.y + a.y) - food.y);
+    const db = Math.hypot((head.x + b.x) - food.x, (head.y + b.y) - food.y);
+    return da - db;
+  });
+  dx = directions[0].x;
+  dy = directions[0].y;
 }
 
 function gameOver() {
   clearInterval(gameLoop);
-  alert(`Game over! Điểm của bạn: ${score}`);
-  if (score > highScore) {
-    localStorage.setItem("snakeHighScore", score);
-    highScore = score;
-    highScoreEl.textContent = highScore;
-  }
-  resetGame();
+  finalScore.textContent = `Bạn đã ghi được ${score} điểm.`;
+  gameOverModal.show();
 }
 
-function resetGame() {
-  snake = [{ x: 10, y: 10 }];
-  direction = { x: 0, y: 0 };
-  score = 0;
-  scoreEl.textContent = score;
-  placeFood();
-  placeWalls();
-  draw();
+function changeDirection(e) {
+  const key = e.key;
+  if (key === "ArrowUp" && dy === 0) {
+    dx = 0; dy = -gridSize;
+  } else if (key === "ArrowDown" && dy === 0) {
+    dx = 0; dy = gridSize;
+  } else if (key === "ArrowLeft" && dx === 0) {
+    dx = -gridSize; dy = 0;
+  } else if (key === "ArrowRight" && dx === 0) {
+    dx = gridSize; dy = 0;
+  }
 }
 
-function botChooseDirection() {
-  // Bot đơn giản: tìm hướng đến food mà không va chạm
-  const head = snake[0];
-  const dx = food.x - head.x;
-  const dy = food.y - head.y;
-  let options = [];
+// --- Xử lý cảm ứng (touch controls) ---
+let touchStartX = 0;
+let touchStartY = 0;
+let touchEndX = 0;
+let touchEndY = 0;
+const swipeThreshold = 30;
 
-  // Tạo các hướng khả thi
-  if (dx !== 0) {
-    options.push({ x: Math.sign(dx), y: 0 });
-  }
-  if (dy !== 0) {
-    options.push({ x: 0, y: Math.sign(dy) });
-  }
-  // Thêm hướng ngẫu nhiên phòng trường hợp trên đều không đi được
-  options.push({ x: 0, y: 1 });
-  options.push({ x: 0, y: -1 });
-  options.push({ x: 1, y: 0 });
-  options.push({ x: -1, y: 0 });
+function handleTouchStart(e) {
+  const touch = e.touches[0];
+  touchStartX = touch.clientX;
+  touchStartY = touch.clientY;
+}
 
-  for (let dir of options) {
-    let nextPos = { x: head.x + dir.x, y: head.y + dir.y };
-    if (
-      nextPos.x >= 0 &&
-      nextPos.x < gridSize &&
-      nextPos.y >= 0 &&
-      nextPos.y < gridSize &&
-      !walls.some(w => w.x === nextPos.x && w.y === nextPos.y) &&
-      !snake.some(s => s.x === nextPos.x && s.y === nextPos.y)
-    ) {
-      return dir;
+function handleTouchMove(e) {
+  e.preventDefault();
+  const touch = e.touches[0];
+  touchEndX = touch.clientX;
+  touchEndY = touch.clientY;
+}
+
+function handleTouchEnd() {
+  const dxSwipe = touchEndX - touchStartX;
+  const dySwipe = touchEndY - touchStartY;
+
+  if (Math.abs(dxSwipe) > Math.abs(dySwipe)) {
+    if (dxSwipe > swipeThreshold && dx === 0) {
+      dx = gridSize;
+      dy = 0;
+    } else if (dxSwipe < -swipeThreshold && dx === 0) {
+      dx = -gridSize;
+      dy = 0;
+    }
+  } else {
+    if (dySwipe > swipeThreshold && dy === 0) {
+      dx = 0;
+      dy = gridSize;
+    } else if (dySwipe < -swipeThreshold && dy === 0) {
+      dx = 0;
+      dy = -gridSize;
     }
   }
-  // Nếu không tìm được hướng đi an toàn, giữ nguyên hướng cũ
-  return direction;
 }
 
-function gameTick() {
-  if (isBot) {
-    direction = botChooseDirection();
-  }
-  // Nếu chưa có hướng (lúc bắt đầu) thì rắn không di chuyển
-  if (direction.x === 0 && direction.y === 0) return;
-  update();
-}
+canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
+canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
+canvas.addEventListener("touchend", handleTouchEnd);
 
-function keyDownHandler(e) {
-  if (isBot) return; // Bot chơi thì không cần người điều khiển
-  switch (e.key) {
-    case "ArrowUp":
-      if (direction.y !== 1) direction = { x: 0, y: -1 };
-      break;
-    case "ArrowDown":
-      if (direction.y !== -1) direction = { x: 0, y: 1 };
-      break;
-    case "ArrowLeft":
-      if (direction.x !== 1) direction = { x: -1, y: 0 };
-      break;
-    case "ArrowRight":
-      if (direction.x !== -1) direction = { x: 1, y: 0 };
-      break;
-  }
-}
-
-function startGame() {
-  clearInterval(gameLoop);
-  speed = parseInt(speedSelect.value);
-  isBot = modeSelect.value === "bot";
-  resetGame();
-  gameLoop = setInterval(gameTick, speed);
-}
-
-modeSelect.addEventListener("change", startGame);
-speedSelect.addEventListener("change", startGame);
-window.addEventListener("keydown", keyDownHandler);
-
-createBoard();
-startGame();
+startBtn.addEventListener("click", initGame);
+restartBtn.addEventListener("click", initGame);
+modalRestartBtn.addEventListener("click", () => {
+  gameOverModal.hide();
+  initGame();
+});
+document.addEventListener("keydown", changeDirection);
