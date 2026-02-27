@@ -4,261 +4,279 @@ const ctx = canvas.getContext("2d");
 const startBtn = document.getElementById("startBtn");
 const restartBtn = document.getElementById("restartBtn");
 const modalRestartBtn = document.getElementById("modalRestartBtn");
-const scoreDisplay = document.getElementById("score");
-const highScoreDisplay = document.getElementById("high-score");
-const speedSelect = document.getElementById("speedSelect");
+const score1Display = document.getElementById("score1");
+const score2Display = document.getElementById("score2");
+const p2NameDisplay = document.getElementById("p2Name");
 const modeSelect = document.getElementById("modeSelect");
-const sizeSelect = document.getElementById("sizeSelect");
-const botDifficulty = document.getElementById("botDifficulty");
-const botDifficultyContainer = document.getElementById("botDifficultyContainer");
+const aiDifficulty = document.getElementById("aiDifficulty");
+const aiDifficultyContainer = document.getElementById("aiDifficultyContainer");
 const soundToggle = document.getElementById("soundToggle");
-const finalScoreDisplay = document.getElementById("finalScore");
-const highScoreMsg = document.getElementById("highScoreMsg");
+const winnerTitle = document.getElementById("winnerTitle");
+const finalScoreMsg = document.getElementById("finalScoreMsg");
 
-// Khởi tạo Modal khi DOM đã sẵn sàng
 let gameOverModal;
 document.addEventListener("DOMContentLoaded", () => {
     gameOverModal = new bootstrap.Modal(document.getElementById("gameOverModal"));
 });
 
-// Âm thanh với xử lý lỗi
-const eatSound = new Audio("https://actions.google.com/sounds/v1/cartoon/pop.ogg");
-const hitSound = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flick.ogg");
+// Âm thanh
+const kickSound = new Audio("https://actions.google.com/sounds/v1/cartoon/punch_kick.ogg");
+const goalSound = new Audio("https://actions.google.com/sounds/v1/cartoon/claps_and_cheers.ogg");
 
 function playSound(sound) {
     if (soundToggle.checked) {
-        sound.play().catch(e => console.warn("Không thể phát âm thanh:", e));
+        sound.currentTime = 0;
+        sound.play().catch(() => {});
     }
 }
 
-let snake, food, dx, dy, score, gameLoop, isBot, botLevel;
-let gridSize = 20;
-let highScore = localStorage.getItem("snakeHighScore") || 0;
+// Cấu hình game
+const gravity = 0.5;
+const friction = 0.98;
+const playerSpeed = 5;
+const jumpForce = -12;
+const ballRadius = 15;
+const playerRadius = 30;
+const goalWidth = 60;
+const goalHeight = 150;
 
-highScoreDisplay.textContent = highScore;
+let p1, p2, ball, score1, score2, gameActive = false, animationId;
+let keys = {};
 
-modeSelect.addEventListener("change", () => {
-    botDifficultyContainer.classList.toggle("d-none", modeSelect.value !== "bot");
-});
+class Entity {
+    constructor(x, y, radius, color) {
+        this.x = x;
+        this.y = y;
+        this.radius = radius;
+        this.color = color;
+        this.vx = 0;
+        this.vy = 0;
+        this.grounded = false;
+    }
+
+    draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+        ctx.closePath();
+
+        // Vẽ mắt cho cầu thủ
+        if (this.radius > 20) {
+            ctx.fillStyle = "white";
+            ctx.beginPath();
+            ctx.arc(this.x + (this.vx >= 0 ? 10 : -10), this.y - 10, 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    applyPhysics() {
+        this.vy += gravity;
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Va chạm đất
+        if (this.y + this.radius > canvas.height) {
+            this.y = canvas.height - this.radius;
+            this.vy = 0;
+            this.grounded = true;
+        } else {
+            this.grounded = false;
+        }
+
+        // Va chạm tường
+        if (this.x - this.radius < 0) {
+            this.x = this.radius;
+            this.vx *= -0.5;
+        } else if (this.x + this.radius > canvas.width) {
+            this.x = canvas.width - this.radius;
+            this.vx *= -0.5;
+        }
+    }
+}
 
 function initGame() {
-    const size = parseInt(sizeSelect.value);
-    canvas.width = size;
-    canvas.height = size;
+    score1 = 0;
+    score2 = 0;
+    score1Display.textContent = "0";
+    score2Display.textContent = "0";
+    p2NameDisplay.textContent = modeSelect.value === "pva" ? "Máy" : "Người chơi 2";
+    aiDifficultyContainer.classList.toggle("d-none", modeSelect.value === "pvp");
 
-    // Đặt rắn ở giữa bàn chơi
-    const startX = Math.floor(size / (2 * gridSize)) * gridSize;
-    const startY = Math.floor(size / (2 * gridSize)) * gridSize;
-
-    snake = [
-        { x: startX, y: startY },
-        { x: startX - gridSize, y: startY },
-        { x: startX - 2 * gridSize, y: startY }
-    ];
-
-    dx = gridSize;
-    dy = 0;
-    score = 0;
-    scoreDisplay.textContent = score;
-
-    isBot = modeSelect.value === "bot";
-    botLevel = botDifficulty.value;
-
-    food = getRandomPosition();
-
-    clearInterval(gameLoop);
-
-    // Vẽ trạng thái ban đầu ngay lập tức
-    render();
-
-    const speed = parseInt(speedSelect.value);
-    gameLoop = setInterval(main, speed);
-
+    resetPositions();
+    gameActive = true;
     startBtn.classList.add("d-none");
     restartBtn.classList.remove("d-none");
+
+    if (animationId) cancelAnimationFrame(animationId);
+    gameLoop();
 }
 
-function main() {
-    if (isBot) handleBotMove();
-
-    if (didGameEnd()) {
-        gameOver();
-        return;
-    }
-
-    advanceSnake();
-    render();
+function resetPositions() {
+    p1 = new Entity(100, canvas.height - playerRadius, playerRadius, "#3b82f6");
+    p2 = new Entity(canvas.width - 100, canvas.height - playerRadius, playerRadius, "#ef4444");
+    ball = new Entity(canvas.width / 2, canvas.height / 2, ballRadius, "white");
 }
 
-function render() {
-    clearCanvas();
-    drawFood();
-    drawSnake();
-}
+function gameLoop() {
+    if (!gameActive) return;
 
-function clearCanvas() {
-    ctx.fillStyle = "#111";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawField();
 
-    ctx.strokeStyle = "#222";
-    ctx.lineWidth = 1;
-    for(let i=0; i<=canvas.width; i+=gridSize) {
-        ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke();
-    }
-    for(let i=0; i<=canvas.height; i+=gridSize) {
-        ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width,i); ctx.stroke();
-    }
-}
+    handleInput();
+    if (modeSelect.value === "pva") handleAI();
 
-function drawSnake() {
-    snake.forEach((part, index) => {
-        ctx.fillStyle = index === 0 ? "#4caf50" : "#81c784";
-        ctx.strokeStyle = "#111";
-        ctx.lineWidth = 2;
-        ctx.fillRect(part.x, part.y, gridSize, gridSize);
-        ctx.strokeRect(part.x, part.y, gridSize, gridSize);
+    [p1, p2, ball].forEach(e => {
+        if (e === ball) {
+            e.vx *= friction;
+            // Giới hạn tốc độ bóng
+            const maxSpeed = 15;
+            if (Math.abs(e.vx) > maxSpeed) e.vx = Math.sign(e.vx) * maxSpeed;
+            if (Math.abs(e.vy) > maxSpeed) e.vy = Math.sign(e.vy) * maxSpeed;
+        }
+        e.applyPhysics();
     });
+
+    checkCollisions();
+    checkGoal();
+
+    [p1, p2, ball].forEach(e => e.draw());
+
+    animationId = requestAnimationFrame(gameLoop);
 }
 
-function advanceSnake() {
-    const head = { x: snake[0].x + dx, y: snake[0].y + dy };
-    snake.unshift(head);
-
-    if (snake[0].x === food.x && snake[0].y === food.y) {
-        score += 10;
-        scoreDisplay.textContent = score;
-        playSound(eatSound);
-        food = getRandomPosition();
-    } else {
-        snake.pop();
-    }
-}
-
-function didGameEnd() {
-    // Va chạm thân
-    for (let i = 4; i < snake.length; i++) {
-        if (snake[i].x === snake[0].x && snake[i].y === snake[0].y) return true;
-    }
-    // Va chạm tường
-    const hitWall = snake[0].x < 0 || snake[0].x >= canvas.width ||
-                    snake[0].y < 0 || snake[0].y >= canvas.height;
-    return hitWall;
-}
-
-function drawFood() {
-    ctx.fillStyle = "#f44336";
-    ctx.strokeStyle = "#b71c1c";
+function drawField() {
+    // Vẽ cỏ mờ
+    ctx.strokeStyle = "rgba(255,255,255,0.1)";
     ctx.lineWidth = 2;
-    ctx.fillRect(food.x, food.y, gridSize, gridSize);
-    ctx.strokeRect(food.x, food.y, gridSize, gridSize);
+    ctx.beginPath();
+    ctx.moveTo(canvas.width / 2, 0);
+    ctx.lineTo(canvas.width / 2, canvas.height);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(canvas.width/2, canvas.height/2, 50, 0, Math.PI*2);
+    ctx.stroke();
+
+    // Vẽ khung thành
+    ctx.fillStyle = "white";
+    // Khung thành trái
+    ctx.fillRect(0, canvas.height - goalHeight, 10, goalHeight);
+    ctx.fillRect(0, canvas.height - goalHeight, goalWidth, 5);
+    // Khung thành phải
+    ctx.fillRect(canvas.width - 10, canvas.height - goalHeight, 10, goalHeight);
+    ctx.fillRect(canvas.width - goalWidth, canvas.height - goalHeight, goalWidth, 5);
 }
 
-function getRandomPosition() {
-    let foodX, foodY;
-    while (true) {
-        foodX = Math.floor(Math.random() * (canvas.width / gridSize)) * gridSize;
-        foodY = Math.floor(Math.random() * (canvas.height / gridSize)) * gridSize;
-        if (!snake.some(part => part.x === foodX && part.y === foodY)) break;
+function handleInput() {
+    // P1: Mũi tên
+    if (keys['ArrowLeft']) p1.vx = -playerSpeed;
+    else if (keys['ArrowRight']) p1.vx = playerSpeed;
+    else p1.vx = 0;
+
+    if (keys['ArrowUp'] && p1.grounded) {
+        p1.vy = jumpForce;
     }
-    return { x: foodX, y: foodY };
-}
 
-function gameOver() {
-    clearInterval(gameLoop);
-    playSound(hitSound);
+    // P2: WAD (nếu PvP)
+    if (modeSelect.value === "pvp") {
+        if (keys['KeyA']) p2.vx = -playerSpeed;
+        else if (keys['KeyD']) p2.vx = playerSpeed;
+        else p2.vx = 0;
 
-    finalScoreDisplay.textContent = `Điểm của bạn: ${score}`;
-
-    if (score > highScore) {
-        highScore = score;
-        localStorage.setItem("snakeHighScore", highScore);
-        highScoreDisplay.textContent = highScore;
-        highScoreMsg.classList.remove("d-none");
-    } else {
-        highScoreMsg.classList.add("d-none");
+        if (keys['KeyW'] && p2.grounded) {
+            p2.vy = jumpForce;
+        }
     }
-
-    if (gameOverModal) gameOverModal.show();
 }
 
-function changeDirection(event) {
-    if (isBot) return;
+function handleAI() {
+    const diff = aiDifficulty.value;
+    let reaction = 0.05;
+    if (diff === "medium") reaction = 0.1;
+    if (diff === "hard") reaction = 0.2;
 
-    const keyPressed = event.keyCode;
-    const LEFT_KEY = 37;
-    const UP_KEY = 38;
-    const RIGHT_KEY = 39;
-    const DOWN_KEY = 40;
+    // Di chuyển về phía bóng
+    const targetX = ball.x;
+    if (p2.x < targetX - 20) p2.vx = playerSpeed * (diff === "easy" ? 0.7 : 1);
+    else if (p2.x > targetX + 20) p2.vx = -playerSpeed * (diff === "easy" ? 0.7 : 1);
+    else p2.vx = 0;
 
-    const goingUp = dy === -gridSize;
-    const goingDown = dy === gridSize;
-    const goingRight = dx === gridSize;
-    const goingLeft = dx === -gridSize;
-
-    if (keyPressed === LEFT_KEY && !goingRight) { dx = -gridSize; dy = 0; }
-    if (keyPressed === UP_KEY && !goingDown) { dx = 0; dy = -gridSize; }
-    if (keyPressed === RIGHT_KEY && !goingLeft) { dx = gridSize; dy = 0; }
-    if (keyPressed === DOWN_KEY && !goingUp) { dx = 0; dy = gridSize; }
+    // Nhảy nếu bóng ở trên đầu hoặc cần sút
+    if (ball.y < p2.y - 50 && ball.x > p2.x - 50 && ball.x < p2.x + 50 && p2.grounded) {
+        if (Math.random() < reaction) p2.vy = jumpForce;
+    }
 }
 
-function handleBotMove() {
-    const head = snake[0];
-    const possibleMoves = [
-        { dx: gridSize, dy: 0 },
-        { dx: -gridSize, dy: 0 },
-        { dx: 0, dy: gridSize },
-        { dx: 0, dy: -gridSize }
-    ];
+function checkCollisions() {
+    [p1, p2].forEach(p => {
+        const dx = ball.x - p.x;
+        const dy = ball.y - p.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
 
-    let safeMoves = possibleMoves.filter(move => {
-        const nextX = head.x + move.dx;
-        const nextY = head.y + move.dy;
-        if (nextX < 0 || nextX >= canvas.width || nextY < 0 || nextY >= canvas.height) return false;
-        return !snake.some(part => part.x === nextX && part.y === nextY);
+        if (dist < ball.radius + p.radius) {
+            playSound(kickSound);
+            // Tính toán hướng đẩy bóng
+            const angle = Math.atan2(dy, dx);
+            const force = 10;
+            ball.vx = Math.cos(angle) * force + p.vx;
+            ball.vy = Math.sin(angle) * force + p.vy;
+
+            // Đẩy bóng ra khỏi cầu thủ để tránh kẹt
+            const overlap = ball.radius + p.radius - dist;
+            ball.x += Math.cos(angle) * overlap;
+            ball.y += Math.sin(angle) * overlap;
+        }
     });
+}
 
-    if (safeMoves.length === 0) safeMoves = possibleMoves;
-
-    safeMoves.sort((a, b) => {
-        const distA = Math.abs(head.x + a.dx - food.x) + Math.abs(head.y + a.dy - food.y);
-        const distB = Math.abs(head.x + b.dx - food.x) + Math.abs(head.y + b.dy - food.y);
-        return distA - distB;
-    });
-
-    const bestMove = (botLevel === "hard") ? safeMoves[0] : possibleMoves.sort((a, b) => {
-        const distA = Math.abs(head.x + a.dx - food.x) + Math.abs(head.y + a.dy - food.y);
-        const distB = Math.abs(head.x + b.dx - food.x) + Math.abs(head.y + b.dy - food.y);
-        return distA - distB;
-    })[0];
-
-    if (bestMove.dx !== -dx || bestMove.dy !== -dy) {
-        dx = bestMove.dx;
-        dy = bestMove.dy;
+function checkGoal() {
+    // Ghi bàn vào lưới trái (P2 ghi điểm)
+    if (ball.x - ball.radius < 10 && ball.y > canvas.height - goalHeight) {
+        score2++;
+        score2Display.textContent = score2;
+        goalScored("Người chơi 2 / Máy");
+    }
+    // Ghi bàn vào lưới phải (P1 ghi điểm)
+    if (ball.x + ball.radius > canvas.width - 10 && ball.y > canvas.height - goalHeight) {
+        score1++;
+        score1Display.textContent = score1;
+        goalScored("Người chơi 1");
     }
 }
 
-// Vuốt màn hình
-let touchStartX = 0, touchStartY = 0;
-canvas.addEventListener('touchstart', e => {
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-}, {passive: true});
+function goalScored(who) {
+    playSound(goalSound);
+    gameActive = false;
 
-canvas.addEventListener('touchend', e => {
-    if (isBot) return;
-    const deltaX = e.changedTouches[0].clientX - touchStartX;
-    const deltaY = e.changedTouches[0].clientY - touchStartY;
-    if (Math.abs(deltaX) > Math.abs(deltaY)) {
-        if (Math.abs(deltaX) > 30 && dx === 0) { dx = deltaX > 0 ? gridSize : -gridSize; dy = 0; }
+    if (score1 >= 5 || score2 >= 5) {
+        showGameOver();
     } else {
-        if (Math.abs(deltaY) > 30 && dy === 0) { dy = deltaY > 0 ? gridSize : -gridSize; dx = 0; }
+        setTimeout(() => {
+            resetPositions();
+            gameActive = true;
+            gameLoop();
+        }, 1500);
     }
-}, {passive: true});
+}
 
-document.addEventListener("keydown", changeDirection);
-startBtn.addEventListener("click", initGame);
-restartBtn.addEventListener("click", initGame);
-modalRestartBtn.addEventListener("click", () => {
+function showGameOver() {
+    gameActive = false;
+    winnerTitle.textContent = score1 >= 5 ? "NGƯỜI CHƠI 1 THẮNG!" : (modeSelect.value === "pva" ? "MÁY THẮNG!" : "NGƯỜI CHƠI 2 THẮNG!");
+    finalScoreMsg.textContent = `${score1} - ${score2}`;
+    gameOverModal.show();
+}
+
+window.addEventListener('keydown', e => keys[e.code] = true);
+window.addEventListener('keyup', e => keys[e.code] = false);
+
+startBtn.addEventListener('click', initGame);
+restartBtn.addEventListener('click', initGame);
+modalRestartBtn.addEventListener('click', () => {
     gameOverModal.hide();
     initGame();
+});
+
+modeSelect.addEventListener('change', () => {
+    aiDifficultyContainer.classList.toggle("d-none", modeSelect.value === "pvp");
 });
