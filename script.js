@@ -14,6 +14,11 @@ const soundToggle = document.getElementById("soundToggle");
 const winnerTitle = document.getElementById("winnerTitle");
 const finalScoreMsg = document.getElementById("finalScoreMsg");
 
+// Mobile Buttons
+const btnLeft = document.getElementById("btnLeft");
+const btnRight = document.getElementById("btnRight");
+const btnJump = document.getElementById("btnJump");
+
 let gameOverModal;
 document.addEventListener("DOMContentLoaded", () => {
     gameOverModal = new bootstrap.Modal(document.getElementById("gameOverModal"));
@@ -61,7 +66,6 @@ class Entity {
         ctx.fill();
         ctx.closePath();
 
-        // Vẽ mắt cho cầu thủ
         if (this.radius > 20) {
             ctx.fillStyle = "white";
             ctx.beginPath();
@@ -75,7 +79,6 @@ class Entity {
         this.x += this.vx;
         this.y += this.vy;
 
-        // Va chạm đất
         if (this.y + this.radius > canvas.height) {
             this.y = canvas.height - this.radius;
             this.vy = 0;
@@ -84,7 +87,6 @@ class Entity {
             this.grounded = false;
         }
 
-        // Va chạm tường
         if (this.x - this.radius < 0) {
             this.x = this.radius;
             this.vx *= -0.5;
@@ -130,7 +132,6 @@ function gameLoop() {
     [p1, p2, ball].forEach(e => {
         if (e === ball) {
             e.vx *= friction;
-            // Giới hạn tốc độ bóng
             const maxSpeed = 15;
             if (Math.abs(e.vx) > maxSpeed) e.vx = Math.sign(e.vx) * maxSpeed;
             if (Math.abs(e.vy) > maxSpeed) e.vy = Math.sign(e.vy) * maxSpeed;
@@ -147,7 +148,6 @@ function gameLoop() {
 }
 
 function drawField() {
-    // Vẽ cỏ mờ
     ctx.strokeStyle = "rgba(255,255,255,0.1)";
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -158,27 +158,24 @@ function drawField() {
     ctx.arc(canvas.width/2, canvas.height/2, 50, 0, Math.PI*2);
     ctx.stroke();
 
-    // Vẽ khung thành
     ctx.fillStyle = "white";
-    // Khung thành trái
     ctx.fillRect(0, canvas.height - goalHeight, 10, goalHeight);
     ctx.fillRect(0, canvas.height - goalHeight, goalWidth, 5);
-    // Khung thành phải
     ctx.fillRect(canvas.width - 10, canvas.height - goalHeight, 10, goalHeight);
     ctx.fillRect(canvas.width - goalWidth, canvas.height - goalHeight, goalWidth, 5);
 }
 
 function handleInput() {
-    // P1: Mũi tên
-    if (keys['ArrowLeft']) p1.vx = -playerSpeed;
-    else if (keys['ArrowRight']) p1.vx = playerSpeed;
+    // P1: Keyboard or Mobile Buttons
+    if (keys['ArrowLeft'] || keys['btnLeft']) p1.vx = -playerSpeed;
+    else if (keys['ArrowRight'] || keys['btnRight']) p1.vx = playerSpeed;
     else p1.vx = 0;
 
-    if (keys['ArrowUp'] && p1.grounded) {
+    if ((keys['ArrowUp'] || keys['btnJump']) && p1.grounded) {
         p1.vy = jumpForce;
+        keys['btnJump'] = false; // Ngăn việc nhảy liên tục khi giữ nút ảo
     }
 
-    // P2: WAD (nếu PvP)
     if (modeSelect.value === "pvp") {
         if (keys['KeyA']) p2.vx = -playerSpeed;
         else if (keys['KeyD']) p2.vx = playerSpeed;
@@ -196,13 +193,11 @@ function handleAI() {
     if (diff === "medium") reaction = 0.1;
     if (diff === "hard") reaction = 0.2;
 
-    // Di chuyển về phía bóng
     const targetX = ball.x;
     if (p2.x < targetX - 20) p2.vx = playerSpeed * (diff === "easy" ? 0.7 : 1);
     else if (p2.x > targetX + 20) p2.vx = -playerSpeed * (diff === "easy" ? 0.7 : 1);
     else p2.vx = 0;
 
-    // Nhảy nếu bóng ở trên đầu hoặc cần sút
     if (ball.y < p2.y - 50 && ball.x > p2.x - 50 && ball.x < p2.x + 50 && p2.grounded) {
         if (Math.random() < reaction) p2.vy = jumpForce;
     }
@@ -216,13 +211,11 @@ function checkCollisions() {
 
         if (dist < ball.radius + p.radius) {
             playSound(kickSound);
-            // Tính toán hướng đẩy bóng
             const angle = Math.atan2(dy, dx);
             const force = 10;
             ball.vx = Math.cos(angle) * force + p.vx;
             ball.vy = Math.sin(angle) * force + p.vy;
 
-            // Đẩy bóng ra khỏi cầu thủ để tránh kẹt
             const overlap = ball.radius + p.radius - dist;
             ball.x += Math.cos(angle) * overlap;
             ball.y += Math.sin(angle) * overlap;
@@ -231,13 +224,11 @@ function checkCollisions() {
 }
 
 function checkGoal() {
-    // Ghi bàn vào lưới trái (P2 ghi điểm)
     if (ball.x - ball.radius < 10 && ball.y > canvas.height - goalHeight) {
         score2++;
         score2Display.textContent = score2;
         goalScored("Người chơi 2 / Máy");
     }
-    // Ghi bàn vào lưới phải (P1 ghi điểm)
     if (ball.x + ball.radius > canvas.width - 10 && ball.y > canvas.height - goalHeight) {
         score1++;
         score1Display.textContent = score1;
@@ -267,8 +258,28 @@ function showGameOver() {
     gameOverModal.show();
 }
 
+// Event Listeners for Keyboard
 window.addEventListener('keydown', e => keys[e.code] = true);
 window.addEventListener('keyup', e => keys[e.code] = false);
+
+// Event Listeners for Mobile Buttons
+const setupMobileBtn = (btn, keyName) => {
+    btn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        keys[keyName] = true;
+    }, {passive: false});
+    btn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        keys[keyName] = false;
+    }, {passive: false});
+    // Mouse fallback for debugging
+    btn.addEventListener('mousedown', () => keys[keyName] = true);
+    btn.addEventListener('mouseup', () => keys[keyName] = false);
+};
+
+setupMobileBtn(btnLeft, 'btnLeft');
+setupMobileBtn(btnRight, 'btnRight');
+setupMobileBtn(btnJump, 'btnJump');
 
 startBtn.addEventListener('click', initGame);
 restartBtn.addEventListener('click', initGame);

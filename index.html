@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Bóng Đá 1vs1 - Soccer Game</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
@@ -65,12 +65,23 @@
       </div>
     </div>
 
-    <div class="game-container text-center">
+    <div class="game-container text-center position-relative">
       <canvas id="gameCanvas" width="800" height="400" class="shadow-lg"></canvas>
+
+      <!-- Điều khiển ảo cho Mobile -->
+      <div id="mobileControls" class="d-flex justify-content-between position-absolute w-100 px-3" style="bottom: 20px; left: 0; pointer-events: none;">
+        <div class="d-flex gap-2" style="pointer-events: auto;">
+          <button id="btnLeft" class="btn btn-dark opacity-75 rounded-circle p-3 shadow" style="width: 70px; height: 70px;">⬅️</button>
+          <button id="btnRight" class="btn btn-dark opacity-75 rounded-circle p-3 shadow" style="width: 70px; height: 70px;">➡️</button>
+        </div>
+        <div style="pointer-events: auto;">
+          <button id="btnJump" class="btn btn-dark opacity-75 rounded-circle p-3 shadow" style="width: 70px; height: 70px;">⏫</button>
+        </div>
+      </div>
     </div>
 
     <div class="mt-4 text-center text-secondary small">
-      <p>P1: Phím mũi tên (Di chuyển & Nhảy). P2 (nếu có): W, A, D.</p>
+      <p>Dùng phím mũi tên hoặc các nút trên màn hình để chơi.</p>
     </div>
   </div>
 
