@@ -28,3 +28,13 @@
 
 ---
 **Lưu ý:** Bạn không cần commit file `.env` lên GitHub vì nó chứa thông tin bảo mật. Vercel sẽ tự động lấy các giá trị từ bảng cấu hình này.
+
+### Tại sao Vercel báo "Preview" thay vì "Production"?
+Mặc định, Vercel chỉ coi các thay đổi trên nhánh chính (thường là `main` hoặc `master`) là **Production**. Các nhánh khác (như `feature/...`) sẽ được coi là bản xem trước (**Preview**).
+
+Để chuyển bản Preview thành Production, bạn có 2 cách:
+1. **Gộp (Merge) code:** Thực hiện gộp nhánh hiện tại vào nhánh `main` trên GitHub. Vercel sẽ tự động deploy lại bản chính thức.
+2. **Promote to Production (Trên Vercel Dashboard):**
+   - Vào tab **Deployments**.
+   - Tìm bản deploy gần nhất.
+   - Nhấn vào dấu 3 chấm `...` và chọn **Promote to Production**.
