@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HƯƠNG NHỚ - Đăng ký danh sách chờ</title>
+    <style>
+        :root {
+            --primary-color: #b08d57;
+            --bg-color: #f8f4f0;
+            --text-dark: #333;
+            --text-light: #666;
+            --white: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 8%;
+            background-color: transparent;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary-color);
+            letter-spacing: 2px;
+        }
+
+        .badge {
+            background-color: #ffc107;
+            color: #000;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            padding: 40px 8%;
+            min-height: 80vh;
+        }
+
+        .content {
+            flex: 1;
+            max-width: 500px;
+        }
+
+        h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            line-height: 1.2;
+        }
+
+        h1 span {
+            color: var(--primary-color);
+        }
+
+        p {
+            font-size: 18px;
+            color: var(--text-light);
+            margin-bottom: 30px;
+        }
+
+        .form-container {
+            background: var(--white);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        }
+
+        h2 {
+            font-size: 22px;
+            margin-top: 0;
+        }
+
+        form {
+            display: flex;
+            gap: 0;
+            margin-top: 20px;
+        }
+
+        input[type="email"] {
+            flex: 1;
+            padding: 15px 20px;
+            border: 1px solid #ddd;
+            border-right: none;
+            border-radius: 8px 0 0 8px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: var(--white);
+            border: none;
+            padding: 15px 25px;
+            border-radius: 0 8px 8px 0;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background-color: #9a7b4a;
+        }
+
+        .message {
+            margin-top: 15px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .image-container {
+            flex: 1;
+            display: flex;
+            justify-content: flex-end;
+            position: relative;
+        }
+
+        .phone-mockup {
+            width: 280px;
+            height: 580px;
+            background: #222;
+            border: 12px solid #333;
+            border-radius: 40px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 50px 100px rgba(0,0,0,0.15);
+        }
+
+        .phone-screen {
+            height: 100%;
+            background: var(--bg-color);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .phone-logo {
+            font-weight: bold;
+            color: var(--primary-color);
+            font-size: 24px;
+            margin-top: 10px;
+        }
+
+        .phone-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .footprint {
+            font-size: 60px;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+        }
+
+        .phone-placeholder-content {
+            width: 100%;
+            height: 10px;
+            background: #eee;
+            margin: 5px 0;
+            border-radius: 5px;
+        }
+
+        .phone-btn-placeholder {
+            width: 100%;
+            height: 40px;
+            background: var(--primary-color);
+            margin-top: 30px;
+            border-radius: 8px;
+            opacity: 0.8;
+        }
+
+        @media (max-width: 900px) {
+            .container {
+                flex-direction: column;
+                text-align: center;
+                padding: 20px 5%;
+            }
+            .content {
+                margin-bottom: 50px;
+            }
+            .image-container {
+                justify-content: center;
+            }
+            h1 {
+                font-size: 36px;
+            }
+            form {
+                flex-direction: column;
+                gap: 10px;
+            }
+            input[type="email"], button {
+                border-radius: 8px;
+                border-right: 1px solid #ddd;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">HƯƠNG NHỚ</div>
+        <div class="badge">Sắp ra mắt</div>
+    </div>
+
+    <div class="container">
+        <div class="content">
+            <h1>Sải Bước Tự Tin Cùng <span>Hương Nhớ</span></h1>
+            <p>Ứng dụng mua sắm giày dép cao cấp hàng đầu Việt Nam. Khám phá những bộ sưu tập mới nhất và trải nghiệm mua sắm không giới hạn.</p>
+
+            <div class="form-container">
+                <h2>Đăng ký nhận thông báo sớm</h2>
+                <p style="font-size: 14px; margin-bottom: 15px;">Tham gia danh sách chờ để nhận ưu đãi 20% cho đơn hàng đầu tiên khi ứng dụng ra mắt.</p>
+
+                <form id="waitlistForm">
+                    <input type="email" id="email" placeholder="Nhập email của bạn..." required>
+                    <button type="submit">Đăng ký ngay</button>
+                </form>
+                <div id="message" class="message"></div>
+            </div>
+        </div>
+
+        <div class="image-container">
+            <div class="phone-mockup">
+                <div class="phone-screen">
+                    <div class="footprint">👣</div>
+                    <div class="phone-logo">Hương Nhớ</div>
+                    <p class="phone-text">Giao diện hiện đại, trải nghiệm mượt mà.</p>
+                    <div style="width: 80%; margin-top: 20px;">
+                        <div class="phone-placeholder-content"></div>
+                        <div class="phone-placeholder-content" style="width: 60%;"></div>
+                        <div class="phone-btn-placeholder"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('waitlistForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const emailInput = document.getElementById('email');
+            const messageDiv = document.getElementById('message');
+            const email = emailInput.value;
+
+            try {
+                const response = await fetch('/api/waitlist', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+
+                const data = await response.json();
+
+                messageDiv.style.display = 'block';
+                if (response.ok) {
+                    messageDiv.style.color = 'green';
+                    messageDiv.textContent = 'Đăng ký thành công! Vui lòng kiểm tra email của bạn.';
+                    emailInput.value = '';
+                } else {
+                    messageDiv.style.color = 'red';
+                    messageDiv.textContent = data.error || 'Có lỗi xảy ra. Vui lòng thử lại.';
+                }
+            } catch (err) {
+                messageDiv.style.display = 'block';
+                messageDiv.style.color = 'red';
+                messageDiv.textContent = 'Lỗi kết nối máy chủ.';
+            }
+        });
+    </script>
+</body>
+</html>
